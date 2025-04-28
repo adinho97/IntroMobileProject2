@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class AddItem extends StatefulWidget {
+class AddItemScreen extends StatefulWidget {
     const AddItemScreen({super.key});
 
     @override
@@ -40,7 +40,7 @@ class _AddItemScreenState extends State<AddItemScreen>{
                             ),
                             TextFormField(
                                 decoration: const InputDecoration(labelText: 'Price per day (€)'),
-                                keyboardType: TextInputType.Number,
+                                keyboardType: TextInputType.number,
                                 onSaved: (value){
                                     _price = double.tryParse(value?? '0') ?? 0;
                                 },

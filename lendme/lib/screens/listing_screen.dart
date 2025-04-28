@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lendme/screens/add_item_screen.dart';
+
 
 class ListingScreen extends StatefulWidget {
     const ListingScreen({super.key});
@@ -31,15 +33,17 @@ class _ListingScreenState extends State<ListingScreen>{
                     },
                 ),
             floatingActionButton: FloatingActionButton(
-                onPressed: (){
-                    //adding items
+                onPressed: () async {
+                    final newItem = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AddItemScreen()),
+                    );
 
-                    setState((){
-                        _items.add({
-                            'title': 'Stofzuiger Dyson',
-                            'price': 5,
+                    if (newItem != null){
+                        setState((){
+                            _items.add(newItem);
                         });
-                    });
+                    }
                 },
                 child: const Icon(Icons.add),
             ),
