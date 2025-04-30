@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "175222341731",
+    "project_id": "intromobileproject2",
+    "storage_bucket": "intromobileproject2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175222341731:android:cdc5c7fc40c4eefe7c3856",
+        "android_client_info": {
+          "package_name": "com.example.lendme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQJQVwAloXCZWYVq_j3ae8OdrTNTyM3DM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
