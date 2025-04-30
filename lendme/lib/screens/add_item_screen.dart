@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AddItemScreen extends StatefulWidget {
     const AddItemScreen({super.key});
@@ -65,6 +66,7 @@ class _AddItemScreenState extends State<AddItemScreen>{
             ),
         );
     }
+    /*
             void _saveForm() {
             if (_formKey.currentState!.validate()) {
             _formKey.currentState!.save();
@@ -74,5 +76,31 @@ class _AddItemScreenState extends State<AddItemScreen>{
             });
             }
         }
+        */
+
+        void _saveForm() async {
+  if (_formKey.currentState!.validate()) {
+    _formKey.currentState!.save();
+
+    // Save the data to Firestore
+    try {
+      await FirebaseFirestore.instance.collection('devices').add({
+        'title': _title,
+        'price': _price,
+        'createdAt': Timestamp.now(), // Optional: Save creation time
+      });
+
+      // After saving, navigate back to the previous screen (list screen)
+      Navigator.pop(context);
+    } catch (e) {
+      // Handle any errors that might occur during the save process
+      print('Error saving item: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save item: $e')),
+      );
+    }
+  }
+}
+
         
     }
