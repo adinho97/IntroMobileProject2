@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:lendme/screens/login_screen.dart';
+import 'package:lendme/screens/listing_screen.dart';
+import 'package:lendme/screens/register_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -27,7 +29,12 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/listing': (context) => const ListingScreen(),
+      },
     );
   }
 }
