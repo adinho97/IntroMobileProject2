@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1012761819888",
+    "project_id": "lendme-bad05",
+    "storage_bucket": "lendme-bad05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012761819888:android:345149b1bdcb3bb9ea6035",
+        "android_client_info": {
+          "package_name": "com.example.lendme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhMWYj7FTGiZtHW-DccL_0yQTKW1R8hoY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1012761819888:android:268f98d71007c986ea6035",
+        "android_client_info": {
+          "package_name": "com.studentenAP.Lendme"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhMWYj7FTGiZtHW-DccL_0yQTKW1R8hoY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

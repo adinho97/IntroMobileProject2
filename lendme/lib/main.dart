@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:lendme/screens/listing_screen.dart';
 import 'package:lendme/screens/login_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; 
 
-void main() {
+void main() async {
+ WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  print("✅ Firebase initialized");
   runApp(const MyApp());
 }
 
@@ -32,7 +39,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const LoginScreen(),
+      home: const ListingScreen(),
     );
   }
 }
