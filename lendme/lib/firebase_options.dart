@@ -80,3 +80,4 @@ class DefaultFirebaseOptions {
     iosBundleId: 'YOUR-MACOS-BUNDLE-ID',
   );
 }
+ 
