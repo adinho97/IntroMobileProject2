@@ -39,26 +39,34 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     Future<void> _pickImage() async {
         final picker = ImagePicker();
-        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-        
-        if (pickedFile != null) {
-            setState(() {
-                _imageFile = File(pickedFile.path);
-            });
+        try {
+            final pickedFile = await picker.pickImage(
+                source: ImageSource.gallery,
+                maxWidth: 1920,
+                maxHeight: 1080,
+                imageQuality: 85,
+            );
+            
+            if (pickedFile != null) {
+                setState(() {
+                    _imageFile = File(pickedFile.path);
+                });
+            }
+        } catch (e) {
+            if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Error picking image. Please check app permissions.'),
+                        backgroundColor: Colors.red,
+                    ),
+                );
+            }
         }
     }
 
     Future<void> _addItem() async {
         if (!_formKey.currentState!.validate()) return;
-        if (_imageFile == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Please select an image'),
-                    backgroundColor: Colors.red,
-                ),
-            );
-            return;
-        }
+        
         if (_selectedLocation == null) {
             ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -72,20 +80,23 @@ class _AddItemScreenState extends State<AddItemScreen> {
         setState(() => _isLoading = true);
 
         try {
-            // Upload image to Firebase Storage
-            final storageRef = FirebaseStorage.instance.ref();
-            final imageRef = storageRef.child(
-                'items/${path.basename(_imageFile!.path)}',
-            );
-            await imageRef.putFile(_imageFile!);
-            final imageUrl = await imageRef.getDownloadURL();
+            String? imageUrl;
+            // Only upload image if one was selected
+            if (_imageFile != null) {
+                final storageRef = FirebaseStorage.instance.ref();
+                final imageRef = storageRef.child(
+                    'items/${path.basename(_imageFile!.path)}',
+                );
+                await imageRef.putFile(_imageFile!);
+                imageUrl = await imageRef.getDownloadURL();
+            }
 
             // Add item to Firestore
             await FirebaseFirestore.instance.collection('items').add({
                 'title': _titleController.text.trim(),
                 'description': _descriptionController.text.trim(),
                 'price': double.parse(_priceController.text),
-                'imageUrl': imageUrl,
+                'imageUrl': imageUrl, // This can be null
                 'category': _selectedCategory,
                 'isAvailable': _isAvailable,
                 'location': GeoPoint(
@@ -177,7 +188,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                                 child: _imageFile == null
                                     ? Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
+                        children: [
                                             const Icon(
                                                 Icons.add_photo_alternate_outlined,
                                                 size: 48,
@@ -185,7 +196,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
-                                                'Add Item Photo',
+                                                'Add Item Photo (Optional)',
                                                 style: TextStyle(
                                                     color: Colors.grey[600],
                                                     fontWeight: FontWeight.w500,
@@ -204,7 +215,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                             ),
                         ),
                         const SizedBox(height: 24),
-                        TextFormField(
+                            TextFormField(
                             controller: _titleController,
                             decoration: const InputDecoration(
                                 labelText: 'Title',
@@ -233,30 +244,30 @@ class _AddItemScreenState extends State<AddItemScreen> {
                             validator: (value) {
                                 if (value == null || value.isEmpty) {
                                     return 'Please enter a description';
-                                }
-                                return null;
-                            },
+                                    }
+                                    return null;
+                                },
                         ),
                         const SizedBox(height: 16),
-                        TextFormField(
+                            TextFormField(
                             controller: _priceController,
                             decoration: const InputDecoration(
                                 labelText: 'Price per day (€)',
                                 hintText: 'Enter rental price',
                                 prefixIcon: Icon(Icons.euro),
                             ),
-                            keyboardType: TextInputType.number,
+                                keyboardType: TextInputType.number,
                             textInputAction: TextInputAction.next,
                             validator: (value) {
                                 if (value == null || value.isEmpty) {
                                     return 'Please enter a price';
-                                }
+                                    }
                                 if (double.tryParse(value) == null) {
                                     return 'Please enter a valid number';
-                                }
-                                return null;
-                            },
-                        ),
+                                    }
+                                    return null;
+                                },
+                            ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
                             value: _selectedCategory,
@@ -442,9 +453,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                                                         ],
                                                     ),
                                                 ),
-                                            ),
-                                    ],
-                                ),
+                              ),
+                        ],
+                    ),
                             ),
                         ),
                         const SizedBox(height: 24),
@@ -467,4 +478,4 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ),
         );
     }
-}
+    }

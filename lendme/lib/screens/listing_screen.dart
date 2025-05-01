@@ -83,8 +83,8 @@ class _ListingScreenState extends State<ListingScreen> {
 
     @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+        return Scaffold(
+            appBar: AppBar(
         title: const Text(
           'Available Items',
           style: TextStyle(
@@ -98,7 +98,7 @@ class _ListingScreenState extends State<ListingScreen> {
             onPressed: _signOut,
           ),
         ],
-      ),
+            ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('items')
@@ -151,7 +151,7 @@ class _ListingScreenState extends State<ListingScreen> {
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
-                  ),
+                ),
                   const SizedBox(height: 8),
                   const Text(
                     'Be the first to add an item!',
@@ -163,7 +163,7 @@ class _ListingScreenState extends State<ListingScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AddItemScreen()),
-                      );
+                    );
                     },
                     icon: const Icon(Icons.add),
                     label: const Text('Add Item'),
@@ -412,7 +412,7 @@ class _ListingScreenState extends State<ListingScreen> {
               );
             },
           );
-        },
+                },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -425,6 +425,6 @@ class _ListingScreenState extends State<ListingScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Add Item'),
       ),
-    );
-  }
-}
+        );
+    }
+ }
