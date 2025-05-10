@@ -16,6 +16,17 @@ class ListingScreen extends StatefulWidget {
 class _ListingScreenState extends State<ListingScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+  String? _selectedFilterCategory;
+
+  // List of predefined categories (matching the ones in add_item_screen)
+  final List<String> _categories = [
+    'Electronics',
+    'Kitchen Appliances',
+    'Garden Tools',
+    'Cleaning Equipment',
+    'DIY Tools',
+    'Other',
+  ];
 
   @override
   void initState() {
@@ -397,12 +408,103 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            return _buildItemCard(snapshot.data!.docs[index], isMyListing);
-          },
+        // Filter items based on selected category if not in My Listings tab
+        final filteredDocs = isMyListing
+            ? snapshot.data!.docs
+            : snapshot.data!.docs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return _selectedFilterCategory == null ||
+                    data['category'] == _selectedFilterCategory;
+              }).toList();
+
+        if (!isMyListing && filteredDocs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.filter_list,
+                  size: 80,
+                  color: Colors.grey,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No items in this category',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Try selecting a different category',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedFilterCategory = null;
+                    });
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Show All Categories'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            if (!isMyListing) ...[
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedFilterCategory,
+                      hint: const Text('Filter by Category'),
+                      isExpanded: true,
+                      icon: const Icon(Icons.filter_list),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('All Categories'),
+                        ),
+                        ..._categories.map((String category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedFilterCategory = newValue;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filteredDocs.length,
+                itemBuilder: (context, index) {
+                  return _buildItemCard(filteredDocs[index], isMyListing);
+                },
+              ),
+            ),
+          ],
         );
       },
     );
