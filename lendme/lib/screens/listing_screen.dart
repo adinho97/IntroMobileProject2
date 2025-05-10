@@ -17,6 +17,9 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   late TabController _tabController;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   String? _selectedFilterCategory;
+  LatLng? _searchLocation;
+  double _searchRadius = 5.0; // Default radius in kilometers
+  bool _isLocationSearchActive = false;
 
   // List of predefined categories (matching the ones in add_item_screen)
   final List<String> _categories = [
@@ -27,6 +30,12 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
     'DIY Tools',
     'Other',
   ];
+
+  // Calculate distance between two points using the Haversine formula
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    const Distance distance = Distance();
+    return distance.as(LengthUnit.Kilometer, point1, point2);
+  }
 
   @override
   void initState() {
@@ -105,6 +114,31 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
         ),
       ),
     );
+  }
+
+  void _showLocationSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Search by Location'),
+        content: const Text('Location search coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _clearLocationSearch() {
+    setState(() {
+      _searchLocation = null;
+      _isLocationSearchActive = false;
+    });
   }
 
   Widget _buildItemCard(DocumentSnapshot doc, bool isMyListing) {
@@ -408,13 +442,26 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           );
         }
 
-        // Filter items based on selected category if not in My Listings tab
+        // Filter items based on selected category and location if not in My Listings tab
         final filteredDocs = isMyListing
             ? snapshot.data!.docs
             : snapshot.data!.docs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
-                return _selectedFilterCategory == null ||
+                final categoryMatch = _selectedFilterCategory == null ||
                     data['category'] == _selectedFilterCategory;
+
+                if (!categoryMatch) return false;
+
+                if (_isLocationSearchActive && _searchLocation != null) {
+                  final itemLocation = data['location'] as GeoPoint;
+                  final distance = _calculateDistance(
+                    _searchLocation!,
+                    LatLng(itemLocation.latitude, itemLocation.longitude),
+                  );
+                  return distance <= _searchRadius;
+                }
+
+                return true;
               }).toList();
 
         if (!isMyListing && filteredDocs.isEmpty) {
@@ -429,7 +476,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'No items in this category',
+                  'No items found',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -437,18 +484,35 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Try selecting a different category',
+                  _isLocationSearchActive
+                      ? 'Try adjusting your search criteria'
+                      : 'Try selecting a different category',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _selectedFilterCategory = null;
-                    });
-                  },
-                  icon: const Icon(Icons.clear_all),
-                  label: const Text('Show All Categories'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_selectedFilterCategory != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _selectedFilterCategory = null;
+                            });
+                          },
+                          icon: const Icon(Icons.clear_all),
+                          label: const Text('Show All Categories'),
+                        ),
+                      ),
+                    if (_isLocationSearchActive)
+                      ElevatedButton.icon(
+                        onPressed: _clearLocationSearch,
+                        icon: const Icon(Icons.location_off),
+                        label: const Text('Clear Location'),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -460,40 +524,103 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
             if (!isMyListing) ...[
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedFilterCategory,
-                      hint: const Text('Filter by Category'),
-                      isExpanded: true,
-                      icon: const Icon(Icons.filter_list),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('All Categories'),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
                         ),
-                        ..._categories.map((String category) {
-                          return DropdownMenuItem<String>(
-                            value: category,
-                            child: Text(category),
-                          );
-                        }).toList(),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedFilterCategory,
+                            hint: const Text('Filter by Category'),
+                            isExpanded: true,
+                            icon: const Icon(Icons.filter_list),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('All Categories'),
+                              ),
+                              ..._categories.map((String category) {
+                                return DropdownMenuItem<String>(
+                                  value: category,
+                                  child: Text(category),
+                                );
+                              }).toList(),
+                            ],
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedFilterCategory = newValue;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _isLocationSearchActive ? const Color(0xFF00A86B) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isLocationSearchActive ? const Color(0xFF00A86B) : Colors.grey[300]!,
+                        ),
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.location_on,
+                          color: _isLocationSearchActive ? Colors.white : Colors.grey[600],
+                        ),
+                        onPressed: _showLocationSearchDialog,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isLocationSearchActive && _searchLocation != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00A86B).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: Color(0xFF00A86B),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Searching within ${_searchRadius.toStringAsFixed(1)} km of selected location',
+                            style: const TextStyle(
+                              color: Color(0xFF00A86B),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Color(0xFF00A86B),
+                            size: 16,
+                          ),
+                          onPressed: _clearLocationSearch,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ],
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedFilterCategory = newValue;
-                        });
-                      },
                     ),
                   ),
                 ),
-              ),
             ],
             Expanded(
               child: ListView.builder(
