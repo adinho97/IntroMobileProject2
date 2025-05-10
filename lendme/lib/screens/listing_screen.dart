@@ -17,9 +17,9 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   late TabController _tabController;
   final String currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
   String? _selectedFilterCategory;
+  bool _isLocationSearchActive = false;
   LatLng? _searchLocation;
   double _searchRadius = 5.0; // Default radius in kilometers
-  bool _isLocationSearchActive = false;
 
   // List of predefined categories (matching the ones in add_item_screen)
   final List<String> _categories = [
@@ -119,17 +119,93 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   void _showLocationSearchDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search by Location'),
-        content: const Text('Location search coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Search by Location'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 300,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: FlutterMap(
+                      options: MapOptions(
+                        initialCenter: _searchLocation ?? const LatLng(51.2195, 4.4025),
+                        initialZoom: 12,
+                        onTap: (tapPosition, point) {
+                          setState(() {
+                            _searchLocation = point;
+                          });
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.example.lendme',
+                        ),
+                        if (_searchLocation != null)
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: _searchLocation!,
+                                width: 40,
+                                height: 40,
+                                child: const Icon(
+                                  Icons.location_pin,
+                                  color: Color(0xFF00A86B),
+                                  size: 40,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _searchLocation != null
+                      ? 'Selected location: ${_searchLocation!.latitude.toStringAsFixed(6)}, ${_searchLocation!.longitude.toStringAsFixed(6)}'
+                      : 'Tap on the map to select a location',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: _searchLocation == null
+                  ? null
+                  : () {
+                      this.setState(() {
+                        _isLocationSearchActive = true;
+                      });
+                      Navigator.pop(context);
+                    },
+              child: const Text(
+                'Search',
+                style: TextStyle(color: Color(0xFF00A86B)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
