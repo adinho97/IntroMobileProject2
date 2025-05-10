@@ -180,6 +180,33 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                     fontSize: 12,
                   ),
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text('Search Radius: '),
+                    Expanded(
+                      child: Slider(
+                        value: _searchRadius,
+                        min: 1,
+                        max: 20,
+                        divisions: 19,
+                        label: '${_searchRadius.toStringAsFixed(1)} km',
+                        onChanged: (value) {
+                          setState(() {
+                            _searchRadius = value;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        '${_searchRadius.toStringAsFixed(1)} km',
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
