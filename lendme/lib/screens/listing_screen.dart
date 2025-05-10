@@ -189,6 +189,21 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                   ),
                 ),
                 const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00A86B).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    data['category'] ?? 'Uncategorized',
+                    style: const TextStyle(
+                      color: Color(0xFF00A86B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   data['description'] ?? 'No Description',
                   style: TextStyle(
