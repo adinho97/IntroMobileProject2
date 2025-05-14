@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lendme/screens/add_item_screen.dart';
+import 'package:lendme/screens/map_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -40,7 +41,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -744,13 +745,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'LendMe',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text('LendMe'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -760,15 +755,15 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Available Items'),
-            Tab(text: 'My Listings'),
+            Tab(text: 'List'),
+            Tab(text: 'Map'),
+            Tab(text: 'My Items'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Available Items Tab
           _buildItemsList(
             FirebaseFirestore.instance
                 .collection('items')
@@ -777,7 +772,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                 .snapshots(),
             false,
           ),
-          // My Listings Tab
+          const MapScreen(),
           _buildItemsList(
             FirebaseFirestore.instance
                 .collection('items')
@@ -788,15 +783,19 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddItemScreen()),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _tabController.index == 0 || _tabController.index == 1
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddItemScreen(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }
