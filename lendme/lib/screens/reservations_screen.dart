@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ReservationsScreen extends StatefulWidget {
   const ReservationsScreen({super.key});
@@ -49,36 +51,40 @@ class _ReservationsScreenState extends State<ReservationsScreen> with SingleTick
 class _IncomingReservationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Dummy data for UI
-    final reservations = [
-      {
-        'itemTitle': 'Drill',
-        'status': 'pending',
-        'startDate': '20/03/2024',
-        'endDate': '25/03/2024',
-        'itemImageUrl': 'https://example.com/drill.jpg',
-      },
-      {
-        'itemTitle': 'Ladder',
-        'status': 'accepted',
-        'startDate': '15/03/2024',
-        'endDate': '20/03/2024',
-        'itemImageUrl': 'https://example.com/ladder.jpg',
-      },
-    ];
+    final currentUser = FirebaseAuth.instance.currentUser;
 
-    if (reservations.isEmpty) {
-      return const Center(
-        child: Text('No incoming reservations yet'),
-      );
-    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reservations')
+          .where('ownerId', isEqualTo: currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    return ListView.builder(
-      itemCount: reservations.length,
-      itemBuilder: (context, index) {
-        return _ReservationCard(
-          reservation: reservations[index],
-          isIncoming: true,
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final reservations = snapshot.data?.docs ?? [];
+
+        if (reservations.isEmpty) {
+          return const Center(
+            child: Text('No incoming reservations yet'),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: reservations.length,
+          itemBuilder: (context, index) {
+            final reservation = reservations[index].data() as Map<String, dynamic>;
+            return _ReservationCard(
+              reservation: reservation,
+              isIncoming: true,
+              reservationId: reservations[index].id,
+            );
+          },
         );
       },
     );
@@ -88,36 +94,40 @@ class _IncomingReservationsTab extends StatelessWidget {
 class _OutgoingReservationsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Dummy data for UI
-    final reservations = [
-      {
-        'itemTitle': 'Hammer',
-        'status': 'pending',
-        'startDate': '22/03/2024',
-        'endDate': '24/03/2024',
-        'itemImageUrl': 'https://example.com/hammer.jpg',
-      },
-      {
-        'itemTitle': 'Screwdriver Set',
-        'status': 'accepted',
-        'startDate': '18/03/2024',
-        'endDate': '21/03/2024',
-        'itemImageUrl': 'https://example.com/screwdriver.jpg',
-      },
-    ];
+    final currentUser = FirebaseAuth.instance.currentUser;
 
-    if (reservations.isEmpty) {
-      return const Center(
-        child: Text('No outgoing reservations yet'),
-      );
-    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reservations')
+          .where('borrowerId', isEqualTo: currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    return ListView.builder(
-      itemCount: reservations.length,
-      itemBuilder: (context, index) {
-        return _ReservationCard(
-          reservation: reservations[index],
-          isIncoming: false,
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final reservations = snapshot.data?.docs ?? [];
+
+        if (reservations.isEmpty) {
+          return const Center(
+            child: Text('No outgoing reservations yet'),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: reservations.length,
+          itemBuilder: (context, index) {
+            final reservation = reservations[index].data() as Map<String, dynamic>;
+            return _ReservationCard(
+              reservation: reservation,
+              isIncoming: false,
+              reservationId: reservations[index].id,
+            );
+          },
         );
       },
     );
@@ -127,10 +137,12 @@ class _OutgoingReservationsTab extends StatelessWidget {
 class _ReservationCard extends StatelessWidget {
   final Map<String, dynamic> reservation;
   final bool isIncoming;
+  final String reservationId;
 
   const _ReservationCard({
     required this.reservation,
     required this.isIncoming,
+    required this.reservationId,
   });
 
   @override
@@ -181,11 +193,11 @@ class _ReservationCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'From: ${reservation['startDate']}',
+                        'From: ${_formatDate(reservation['startDate'])}',
                         style: const TextStyle(color: Colors.grey),
                       ),
                       Text(
-                        'To: ${reservation['endDate']}',
+                        'To: ${_formatDate(reservation['endDate'])}',
                         style: const TextStyle(color: Colors.grey),
                       ),
                     ],
@@ -198,12 +210,18 @@ class _ReservationCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () => _updateReservationStatus(
+                      context,
+                      'rejected',
+                    ),
                     child: const Text('Reject'),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => _updateReservationStatus(
+                      context,
+                      'accepted',
+                    ),
                     child: const Text('Accept'),
                   ),
                 ],
@@ -226,6 +244,33 @@ class _ReservationCard extends StatelessWidget {
         return Colors.blue;
       default:
         return Colors.grey;
+    }
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return 'Not specified';
+    if (date is Timestamp) {
+      final dateTime = date.toDate();
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+    return date.toString();
+  }
+
+  Future<void> _updateReservationStatus(
+    BuildContext context,
+    String newStatus,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('reservations')
+          .doc(reservationId)
+          .update({'status': newStatus});
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating status: $e')),
+        );
+      }
     }
   }
 } 
