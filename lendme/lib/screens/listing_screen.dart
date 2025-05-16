@@ -360,10 +360,18 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                     color: Colors.grey[600],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text(
+                      '€${(data['price'] ?? 0.0).toStringAsFixed(2)} per day',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00A86B),
+                      ),
+                    ),
                     if (data['location'] != null)
                       TextButton.icon(
                         onPressed: () => _showLocationDialog(
@@ -373,35 +381,35 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                         icon: const Icon(Icons.location_on),
                         label: const Text('View Location'),
                       ),
-                    if (isMyListing)
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          try {
-                            await FirebaseFirestore.instance
-                                .collection('items')
-                                .doc(doc.id)
-                                .delete();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Item deleted successfully'),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error deleting item: $e'),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                      ),
                   ],
                 ),
+                if (isMyListing)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () async {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('items')
+                            .doc(doc.id)
+                            .delete();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Item deleted successfully'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error deleting item: $e'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
                 if (!isMyItem && data['isAvailable'] == true) ...[
                   const SizedBox(height: 16),
                   SizedBox(
@@ -413,7 +421,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                           final result = await showDialog<Map<String, dynamic>>(
                             context: context,
                             builder: (context) => _ReservationDateDialog(
-                              dailyRate: data['dailyRate']?.toDouble() ?? 0.0,
+                              dailyRate: data['price']?.toDouble() ?? 0.0,
                             ),
                           );
 
@@ -816,12 +824,13 @@ class _ReservationDateDialogState extends State<_ReservationDateDialog> {
   DateTime? _startDate;
   DateTime? _endDate;
   double _totalPrice = 0.0;
+  int _numberOfDays = 0;
 
   void _calculateTotalPrice() {
     if (_startDate != null && _endDate != null) {
-      final days = _endDate!.difference(_startDate!).inDays + 1;
+      _numberOfDays = _endDate!.difference(_startDate!).inDays + 1;
       setState(() {
-        _totalPrice = days * widget.dailyRate;
+        _totalPrice = _numberOfDays * widget.dailyRate;
       });
     }
   }
@@ -891,23 +900,68 @@ class _ReservationDateDialogState extends State<_ReservationDateDialog> {
             const Divider(),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Total Price:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Daily Rate:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '€${widget.dailyRate.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '€${_totalPrice.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF00A86B),
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Number of Days:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        '$_numberOfDays days',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total Price:',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '€${_totalPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00A86B),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
