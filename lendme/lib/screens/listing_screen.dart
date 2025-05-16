@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lendme/screens/add_item_screen.dart';
-import 'package:lendme/screens/map_screen.dart';
 import 'package:lendme/screens/reservations_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 class ListingScreen extends StatefulWidget {
     const ListingScreen({super.key});
@@ -42,7 +41,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -763,7 +762,6 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           controller: _tabController,
           tabs: const [
             Tab(text: 'List'),
-            Tab(text: 'Map'),
             Tab(text: 'My Items'),
             Tab(text: 'Reservations'),
           ],
@@ -780,7 +778,6 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                 .snapshots(),
             false,
           ),
-          const MapScreen(),
           _buildItemsList(
             FirebaseFirestore.instance
                 .collection('items')
@@ -792,7 +789,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           const ReservationsScreen(),
         ],
       ),
-      floatingActionButton: _tabController.index == 0 || _tabController.index == 1
+      floatingActionButton: _tabController.index == 0
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
