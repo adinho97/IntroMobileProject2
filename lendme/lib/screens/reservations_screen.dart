@@ -200,6 +200,15 @@ class _ReservationCard extends StatelessWidget {
                         'To: ${_formatDate(reservation['endDate'])}',
                         style: const TextStyle(color: Colors.grey),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total: €${(reservation['totalPrice'] ?? 0.0).toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00A86B),
+                        ),
+                      ),
                     ],
                   ),
                 ),

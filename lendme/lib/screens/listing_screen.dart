@@ -895,8 +895,8 @@ class _ReservationDateDialogState extends State<_ReservationDateDialog> {
               }
             },
           ),
-          const SizedBox(height: 16),
-          if (_totalPrice > 0) ...[
+          if (_startDate != null && _endDate != null) ...[
+            const SizedBox(height: 16),
             const Divider(),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
