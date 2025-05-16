@@ -409,45 +409,43 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         try {
-                          // Show confirmation dialog
-                          final shouldReserve = await showDialog<bool>(
+                          // Show date selection dialog
+                          final result = await showDialog<Map<String, dynamic>>(
                             context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Reserve Item'),
-                              content: const Text(
-                                'Are you sure you want to reserve this item?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text(
-                                    'Reserve',
-                                    style: TextStyle(color: Color(0xFF00A86B)),
-                                  ),
-                                ),
-                              ],
+                            builder: (context) => _ReservationDateDialog(
+                              dailyRate: data['dailyRate']?.toDouble() ?? 0.0,
                             ),
                           );
 
-                          if (shouldReserve == true) {
-                            // Update the item's availability
+                          if (result != null) {
+                            // Create the reservation
+                            await FirebaseFirestore.instance
+                                .collection('reservations')
+                                .add({
+                              'itemId': doc.id,
+                              'itemTitle': data['title'],
+                              'itemImageUrl': data['imageUrl'],
+                              'ownerId': data['userId'],
+                              'borrowerId': currentUserId,
+                              'startDate': result['startDate'],
+                              'endDate': result['endDate'],
+                              'totalPrice': result['totalPrice'],
+                              'status': 'pending',
+                              'createdAt': FieldValue.serverTimestamp(),
+                            });
+
+                            // Update item availability
                             await FirebaseFirestore.instance
                                 .collection('items')
                                 .doc(doc.id)
                                 .update({
                               'isAvailable': false,
-                              'reservedBy': currentUserId,
-                              'reservedAt': FieldValue.serverTimestamp(),
                             });
 
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Item reserved successfully'),
+                                  content: Text('Reservation request sent successfully'),
                                 ),
                               );
                             }
@@ -456,7 +454,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Error reserving item: $e'),
+                                content: Text('Error creating reservation: $e'),
                               ),
                             );
                           }
@@ -799,6 +797,142 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
               child: const Icon(Icons.add),
             )
           : null,
+    );
+  }
+}
+
+class _ReservationDateDialog extends StatefulWidget {
+  final double dailyRate;
+
+  const _ReservationDateDialog({
+    required this.dailyRate,
+  });
+
+  @override
+  State<_ReservationDateDialog> createState() => _ReservationDateDialogState();
+}
+
+class _ReservationDateDialogState extends State<_ReservationDateDialog> {
+  DateTime? _startDate;
+  DateTime? _endDate;
+  double _totalPrice = 0.0;
+
+  void _calculateTotalPrice() {
+    if (_startDate != null && _endDate != null) {
+      final days = _endDate!.difference(_startDate!).inDays + 1;
+      setState(() {
+        _totalPrice = days * widget.dailyRate;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Reservation Dates'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            title: const Text('Start Date'),
+            subtitle: Text(_startDate == null
+                ? 'Select start date'
+                : '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime.now(),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (date != null) {
+                setState(() {
+                  _startDate = date;
+                  if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+                    _endDate = null;
+                  }
+                });
+                _calculateTotalPrice();
+              }
+            },
+          ),
+          ListTile(
+            title: const Text('End Date'),
+            subtitle: Text(_endDate == null
+                ? 'Select end date'
+                : '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () async {
+              if (_startDate == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select start date first'),
+                  ),
+                );
+                return;
+              }
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _startDate!,
+                firstDate: _startDate!,
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+              );
+              if (date != null) {
+                setState(() {
+                  _endDate = date;
+                });
+                _calculateTotalPrice();
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          if (_totalPrice > 0) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total Price:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '€${_totalPrice.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00A86B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _startDate != null && _endDate != null
+              ? () {
+                  Navigator.pop(context, {
+                    'startDate': Timestamp.fromDate(_startDate!),
+                    'endDate': Timestamp.fromDate(_endDate!),
+                    'totalPrice': _totalPrice,
+                  });
+                }
+              : null,
+          child: const Text('Reserve'),
+        ),
+      ],
     );
   }
 }
