@@ -21,6 +21,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   bool _isLocationSearchActive = false;
   LatLng? _searchLocation;
   double _searchRadius = 5.0; // Default radius in kilometers
+  String _userName = '';
 
   // List of predefined categories (matching the ones in add_item_screen)
   final List<String> _categories = [
@@ -42,6 +43,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadUserName();
   }
 
   @override
@@ -60,6 +62,27 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error signing out: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadUserName() async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      
+      if (userDoc.exists && mounted) {
+        setState(() {
+          _userName = userDoc.data()?['name'] ?? 'User';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading user name: $e')),
         );
       }
     }
@@ -338,19 +361,59 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00A86B).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    data['category'] ?? 'Uncategorized',
-                    style: const TextStyle(
-                      color: Color(0xFF00A86B),
-                      fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00A86B).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        data['category'] ?? 'Uncategorized',
+                        style: const TextStyle(
+                          color: Color(0xFF00A86B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (data['isAvailable'] ?? true) 
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            (data['isAvailable'] ?? true) 
+                                ? Icons.check_circle
+                                : Icons.cancel,
+                            size: 16,
+                            color: (data['isAvailable'] ?? true) 
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            (data['isAvailable'] ?? true) 
+                                ? 'Available'
+                                : 'Not Available',
+                            style: TextStyle(
+                              color: (data['isAvailable'] ?? true) 
+                                  ? Colors.green
+                                  : Colors.red,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -382,7 +445,49 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                       ),
                   ],
                 ),
-                if (isMyListing)
+                if (isMyListing) ...[
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Item Available'),
+                    subtitle: Text(
+                      (data['isAvailable'] ?? true)
+                          ? 'This item is currently available for lending'
+                          : 'This item is currently not available for lending'
+                    ),
+                    value: data['isAvailable'] ?? true,
+                    activeColor: const Color(0xFF00A86B),
+                    onChanged: (bool value) async {
+                      try {
+                        await FirebaseFirestore.instance
+                            .collection('items')
+                            .doc(doc.id)
+                            .update({
+                          'isAvailable': value,
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                value
+                                    ? 'Item is now available for lending'
+                                    : 'Item is now not available for lending'
+                              ),
+                              backgroundColor: const Color(0xFF00A86B),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating availability: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () async {
@@ -409,6 +514,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                       }
                     },
                   ),
+                ],
                 if (!isMyItem && data['isAvailable'] == true) ...[
                   const SizedBox(height: 16),
                   SizedBox(
@@ -751,7 +857,22 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LendMe'),
+        leading: const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: Icon(
+            Icons.handshake_outlined,
+            size: 32,
+            color: Color(0xFF00A86B),
+          ),
+        ),
+        title: Text(
+          _userName,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
