@@ -6,6 +6,7 @@ import 'package:lendme/screens/reservations_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 class ListingScreen extends StatefulWidget {
     const ListingScreen({super.key});
@@ -22,6 +23,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   LatLng? _searchLocation;
   double _searchRadius = 5.0; // Default radius in kilometers
   String _userName = '';
+  final _mapController = MapController();
 
   // List of predefined categories (matching the ones in add_item_screen)
   final List<String> _categories = [
@@ -42,7 +44,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadUserName();
   }
 
@@ -853,6 +855,349 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
     );
   }
 
+  Widget _buildMapView() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('items')
+          .where('isAvailable', isEqualTo: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF00A86B),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.map_outlined,
+                  size: 80,
+                  color: Colors.grey,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No items available on the map',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Be the first to add an item!',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Filter out user's own items in memory instead of in the query
+        final items = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['userId'] != currentUserId;
+        }).toList();
+
+        if (items.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.map_outlined,
+                  size: 80,
+                  color: Colors.grey,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'No items available on the map',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No items from other users are currently available',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final markers = items.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final location = data['location'] as GeoPoint;
+          return Marker(
+            point: LatLng(location.latitude, location.longitude),
+            width: 80,
+            height: 80,
+            child: GestureDetector(
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (data['imageUrl'] != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: CachedNetworkImage(
+                                imageUrl: data['imageUrl'],
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  height: 200,
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF00A86B),
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  height: 200,
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.grey,
+                                    size: 48,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          Text(
+                            data['title'] ?? 'No Title',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            data['description'] ?? 'No Description',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '€${(data['price'] ?? 0.0).toStringAsFixed(2)} per day',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF00A86B),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                try {
+                                  final result = await showDialog<Map<String, dynamic>>(
+                                    context: context,
+                                    builder: (context) => _ReservationDateDialog(
+                                      dailyRate: data['price']?.toDouble() ?? 0.0,
+                                    ),
+                                  );
+
+                                  if (result != null) {
+                                    await FirebaseFirestore.instance
+                                        .collection('reservations')
+                                        .add({
+                                      'itemId': doc.id,
+                                      'itemTitle': data['title'],
+                                      'itemImageUrl': data['imageUrl'],
+                                      'ownerId': data['userId'],
+                                      'borrowerId': currentUserId,
+                                      'startDate': result['startDate'],
+                                      'endDate': result['endDate'],
+                                      'totalPrice': result['totalPrice'],
+                                      'status': 'pending',
+                                      'createdAt': FieldValue.serverTimestamp(),
+                                    });
+
+                                    await FirebaseFirestore.instance
+                                        .collection('items')
+                                        .doc(doc.id)
+                                        .update({
+                                      'isAvailable': false,
+                                    });
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Reservation request sent successfully'),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error creating reservation: $e'),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.bookmark_add),
+                              label: const Text('Reserve Item'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getCategoryIcon(data['category']),
+                      color: const Color(0xFF00A86B),
+                      size: 24,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '€${(data['price'] ?? 0.0).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList();
+
+        return FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: const LatLng(51.2195, 4.4025),
+            initialZoom: 12,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.lendme',
+            ),
+            MarkerLayer(markers: markers),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: Column(
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'zoomIn',
+                    onPressed: () {
+                      final currentZoom = _mapController.zoom;
+                      _mapController.move(
+                        _mapController.center,
+                        currentZoom + 1,
+                      );
+                    },
+                    backgroundColor: Colors.white,
+                    child: const Icon(
+                      Icons.add,
+                      color: Color(0xFF00A86B),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'zoomOut',
+                    onPressed: () {
+                      final currentZoom = _mapController.zoom;
+                      _mapController.move(
+                        _mapController.center,
+                        currentZoom - 1,
+                      );
+                    },
+                    backgroundColor: Colors.white,
+                    child: const Icon(
+                      Icons.remove,
+                      color: Color(0xFF00A86B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  IconData _getCategoryIcon(String? category) {
+    switch (category) {
+      case 'Electronics':
+        return Icons.devices;
+      case 'Kitchen Appliances':
+        return Icons.kitchen;
+      case 'Garden Tools':
+        return Icons.grass;
+      case 'Cleaning Equipment':
+        return Icons.cleaning_services;
+      case 'DIY Tools':
+        return Icons.handyman;
+      default:
+        return Icons.category;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -883,6 +1228,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
           controller: _tabController,
           tabs: const [
             Tab(text: 'List'),
+            Tab(text: 'Map'),
             Tab(text: 'My Items'),
             Tab(text: 'Reservations'),
           ],
@@ -899,6 +1245,7 @@ class _ListingScreenState extends State<ListingScreen> with SingleTickerProvider
                 .snapshots(),
             false,
           ),
+          _buildMapView(),
           _buildItemsList(
             FirebaseFirestore.instance
                 .collection('items')
