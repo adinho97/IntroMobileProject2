@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:file_picker/file_picker.dart';
 
 class AddItemScreen extends StatefulWidget {
     const AddItemScreen({super.key});
@@ -38,6 +39,27 @@ class _AddItemScreenState extends State<AddItemScreen> {
     ];
 
     Future<void> _pickImage() async {
+        // Detect platform
+        if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+            try {
+                final result = await FilePicker.platform.pickFiles(type: FileType.image);
+                if (result != null && result.files.single.path != null) {
+                    setState(() {
+                        _imageFile = File(result.files.single.path!);
+                    });
+                }
+            } catch (e) {
+                if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Error picking image from your computer.'),
+                            backgroundColor: Colors.red,
+                        ),
+                    );
+                }
+            }
+            return;
+        }
         final picker = ImagePicker();
         try {
             final pickedFile = await picker.pickImage(
@@ -83,44 +105,72 @@ class _AddItemScreenState extends State<AddItemScreen> {
             String? imageUrl;
             // Only upload image if one was selected
             if (_imageFile != null) {
-                final storageRef = FirebaseStorage.instance.ref();
-                final imageRef = storageRef.child(
-                    'items/${path.basename(_imageFile!.path)}',
-                );
-                await imageRef.putFile(_imageFile!);
-                imageUrl = await imageRef.getDownloadURL();
+                try {
+                    final storageRef = FirebaseStorage.instance.ref();
+                    // Create a simple path with timestamp
+                    final timestamp = DateTime.now().millisecondsSinceEpoch;
+                    final fileName = 'item_$timestamp${path.extension(_imageFile!.path)}';
+                    final imageRef = storageRef.child('items/$fileName');
+                    
+                    // Upload the file
+                    await imageRef.putFile(_imageFile!);
+                    // Get the download URL
+                    imageUrl = await imageRef.getDownloadURL();
+                } catch (e) {
+                    if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text('Error uploading image: ${e.toString()}'),
+                                backgroundColor: Colors.red,
+                            ),
+                        );
+                    }
+                    setState(() => _isLoading = false);
+                    return;
+                }
             }
 
             // Add item to Firestore
-            await FirebaseFirestore.instance.collection('items').add({
-                'title': _titleController.text.trim(),
-                'description': _descriptionController.text.trim(),
-                'price': double.parse(_priceController.text),
-                'imageUrl': imageUrl, // This can be null
-                'category': _selectedCategory,
-                'isAvailable': _isAvailable,
-                'location': GeoPoint(
-                    _selectedLocation!.latitude,
-                    _selectedLocation!.longitude,
-                ),
-                'userId': FirebaseAuth.instance.currentUser!.uid,
-                'createdAt': FieldValue.serverTimestamp(),
-            });
-
-            if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Item added successfully'),
-                        backgroundColor: Color(0xFF00A86B),
+            try {
+                await FirebaseFirestore.instance.collection('items').add({
+                    'title': _titleController.text.trim(),
+                    'description': _descriptionController.text.trim(),
+                    'price': double.parse(_priceController.text),
+                    'imageUrl': imageUrl,
+                    'category': _selectedCategory,
+                    'isAvailable': _isAvailable,
+                    'location': GeoPoint(
+                        _selectedLocation!.latitude,
+                        _selectedLocation!.longitude,
                     ),
-                );
-                Navigator.pop(context);
+                    'userId': FirebaseAuth.instance.currentUser!.uid,
+                    'createdAt': FieldValue.serverTimestamp(),
+                });
+
+                if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Item added successfully'),
+                            backgroundColor: Color(0xFF00A86B),
+                        ),
+                    );
+                    Navigator.pop(context);
+                }
+            } catch (e) {
+                if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text('Error adding item to database: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                        ),
+                    );
+                }
             }
         } catch (e) {
             if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('An error occurred'),
+                    SnackBar(
+                        content: Text('An unexpected error occurred: ${e.toString()}'),
                         backgroundColor: Colors.red,
                     ),
                 );
